@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
-from typing import Tuple, Optional, Iterator
+from typing import Tuple, Optional, List
 import snowflake.connector as sc
+import pandas as pd
 
 class SnowflakeManagerSettings(BaseSettings):
     SNOWFLAKE_ACCOUNT: str
@@ -51,34 +52,77 @@ class SnowflakeManager:
     def execute_query(self, query: str) -> sc.cursor:
         self.connect()
         try:
-            cursor = self.conn.cursor()
+            cursor =  self.conn.cursor() 
             cursor.execute(query)
             return cursor
         except sc.Error as e:
             print(f"Error executing query: {e}")
             raise
-
-    def run_query(self, query: str) -> Optional[Iterator[Tuple]]:
+        
+    def run_query(self, query: str) -> Optional[List[Tuple]]:
         cursor = self.execute_query(query)
         if cursor:
             try:
-                while True:
-                    rows = cursor.fetchmany(1000)
-                    if not rows:
-                        break
-                    for row in rows:
-                        yield row
+                return cursor.fetchall()
+
             except sc.Error as e:
                 print(f"Error running query: {e}")
                 return None
         else:
             print("No cursor available to run query.")
             return None
+        
+    def run_query_pandas_all_data(self, query: str) -> Optional[pd.DataFrame]:
+        cursor = self.execute_query(query)
+        if cursor:
+            try:
+                return cursor.fetch_pandas_all()
+            
+            except sc.Error as e:
+                print(f"Error fetching data: {e}")
+                return None
+        else:
+            print("No cursor available to fetch data.")
+            return None
 
-    def fetch_selling_data(self) -> Optional[Iterator[Tuple]]:
-        query = """SELECT * FROM PUC_VENDAS"""
-        return self.run_query(query)
+    def run_query_pandas_in_batches(self, query: str, batch_size: int = 100000) -> Optional[pd.DataFrame]:
+        cursor = self.execute_query(query)
+        if cursor:
+            try:
+                return cursor.fetch_pandas_batches(batch_size)
+            
+            except sc.Error as e:
+                print(f"Error fetching data in batches: {e}")
+                return None
+        else:
+            print("No cursor available to fetch data.")
+            return None
+
+    def fetch_selling_data(self) -> Optional[pd.DataFrame]:
+        query = """ SELECT * FROM PUC_VENDAS """
+        cursor = self.execute_query(query)
+        if cursor:
+            try:
+                return cursor.fetch_pandas_all()
+
+            except sc.Error as e:
+                print(f"Error fetching data from selling data: {e}")
+                return None
+
+        else:
+            print("No cursor available to fetch data.")
+            return None
     
-    def fetch_campaign_data(self) -> Optional[Iterator[Tuple]]:
-        query = """SELECT * FROM PUC_CAMPANHAS"""
-        return self.run_query(query)
+    def fetch_campaign_data(self) -> Optional[pd.DataFrame]:
+        query =  """ SELECT * FROM PUC_CAMPANHAS """
+        cursor = self.execute_query(query)
+        if cursor:
+            try:
+                return cursor.fetch_pandas_all()
+            
+            except sc.Error as e:
+                print(f"Error fetching data from selling data: {e}")
+                return None
+        else:
+            print("No cursor available to fetch data.")
+            return None
