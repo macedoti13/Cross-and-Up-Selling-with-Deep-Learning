@@ -126,3 +126,16 @@ class SnowflakeManager:
         else:
             print("No cursor available to fetch data.")
             return None
+        
+    def get_data_dict_selling_data(self) -> None:
+        cursor = self.execute_query("SELECT GET_DDL('TABLE', 'PUC_VENDAS');")
+        if cursor:
+            try:
+                return cursor.fetchall()[0][0]
+            
+            except sc.Error as e:
+                print(f"Error fetching data dictionary: {e}")
+                return None
+        else:
+            print("No cursor available to fetch data.")
+            return None
