@@ -140,7 +140,7 @@ class SnowflakeManager:
             print("No cursor available to fetch data.")
             return None
         
-    def get_data_dict_selling_data(self) -> None:
+    def get_data_dict_campaign_data(self) -> None:
         cursor = self.execute_query("SELECT GET_DDL('TABLE', 'PUC_CAMPANHAS');")
         if cursor:
             try:
