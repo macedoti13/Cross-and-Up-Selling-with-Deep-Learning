@@ -1,5 +1,11 @@
+numpy
 pandas
 pydantic
 pydantic-settings
 snowflake-connector-python[pandas]
 dask[dataframe]
+matplotlib
+seaborn
+plotly
+nbformat>=4.2.0
+tqdm
