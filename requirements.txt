@@ -1,5 +1,8 @@
+numpy
 pandas
 pydantic
 pydantic-settings
 snowflake-connector-python[pandas]
 dask[dataframe]
+matplotlib
+seaborn
