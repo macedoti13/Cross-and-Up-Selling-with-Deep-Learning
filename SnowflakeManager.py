@@ -116,8 +116,11 @@ class SnowflakeManager:
             print("No cursor available to fetch data.")
             return None
     
-    def fetch_campaign_data(self) -> Optional[pd.DataFrame]:
-        query =  """ SELECT * FROM PUC_CAMPANHAS """
+    def fetch_campaign_data(self, sample: Optional[int] = None) -> Optional[pd.DataFrame]:
+        if sample:
+            query = f""" SELECT * FROM PUC_CAMPANHAS LIMIT {sample} """
+        else:
+            query = """ SELECT * FROM PUC_CAMPANHAS """
         cursor = self.execute_query(query)
         if cursor:
             try:
