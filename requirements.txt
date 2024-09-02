@@ -6,3 +6,4 @@ snowflake-connector-python[pandas]
 dask[dataframe]
 matplotlib
 seaborn
+tqdm
