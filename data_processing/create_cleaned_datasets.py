@@ -145,6 +145,12 @@ def create_cleaned_datasets(df):
     # Create sales dataset
     sales, customers, products = create_sales(df, customers, products)
     
+    logger.info("Checking for data integrity.")
+    assert sales.customer_id.isin(customers.customer_id).all()
+    assert sales.product_id.isin(products.product_id).all()
+    assert customers.customer_id.is_unique
+    assert products.product_id.is_unique
+        
     # Save cleaned datasets to parquet
     logger.info("Saving cleaned datasets.")
     cleaned_data_dir = os.path.join("data", "cleaned")
