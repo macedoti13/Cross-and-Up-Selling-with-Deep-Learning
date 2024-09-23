@@ -79,9 +79,12 @@ def create_products(df):
 
 def create_sales(df, customers, products):
     logger.info("Creating sales dataset.")
+    
+    print(df.duplicated().sum())
     # Filter sales by customers and products that exist in the respective datasets
     sales = df[df.COD_CLIENTE.isin(customers.customer_id) & df.COD_SKU.isin(products.product_id)]
-
+    print(df.duplicated().sum()) 
+        
     # Filter customers and products based on sales
     customers = customers[customers.customer_id.isin(sales.COD_CLIENTE)]
     products = products[products.product_id.isin(sales.COD_SKU)]
@@ -92,11 +95,13 @@ def create_sales(df, customers, products):
         "UNIDADES", "IDENTIFICADOR_PROMOCIONAL", "PRECO_REGULAR", 
         "TOTAL_DESCONTO", "TOTAL_BRUTO", "TOTAL_LIQUIDO"
     ]]
+    print(df.duplicated().sum())
 
     # Create sale_id by combining relevant columns
     sales["sale_id"] = sales[['COD_CLIENTE', 'COD_LOJA', 'DATA_CUPOM']].astype(str).agg('_'.join, axis=1)
     sales["sale_id"] = sales.groupby("sale_id").ngroup() + 1
-
+    print(df.duplicated().sum())
+    
     # Rename columns to more user-friendly names
     sales.rename(columns={
         "COD_CUPOM": "cod_cupon",
@@ -111,25 +116,34 @@ def create_sales(df, customers, products):
         "TOTAL_BRUTO": "gross_total",
         "TOTAL_LIQUIDO": "net_total",
     }, inplace=True)
-
+    print(df.duplicated().sum())
+    
     # Extract temporal features from the date column
     sales["week_of_year"] = sales["date"].dt.isocalendar().week
     sales["day_of_week"] = sales["date"].dt.dayofweek
     sales["hour"] = sales["date"].dt.hour
     sales["minute"] = sales["date"].dt.minute
-
+    print(df.duplicated().sum())
+    
     # Add a binary flag indicating if the sale was part of a promotion
     sales["was_in_promotion"] = sales["promotion_id"].notnull().astype(int)
-
+    print(df.duplicated().sum())
+    
     # Drop columns that are no longer needed
     sales.drop(columns=["promotion_id"], inplace=True)
-
+    print(df.duplicated().sum())
+    
+    # Fill missing values in the discount column
+    sales.fillna({'discount': 0.0}, inplace=True)
+    print(df.duplicated().sum())
+    
     # Reorder columns for final output
     sales = sales[[
-        "cod_cupon", "sale_id", "customer_id", "product_id", "store_id", 
+        "sale_id", "customer_id", "product_id", "store_id", 
         "week_of_year", "day_of_week", "hour", "minute", "units", 
         "was_in_promotion", "regular_price", "discount", "gross_total", "net_total"
     ]]
+    print(df.duplicated().sum())
 
     return sales, customers, products
 
@@ -153,7 +167,7 @@ def create_cleaned_datasets(df):
         
     # Save cleaned datasets to parquet
     logger.info("Saving cleaned datasets.")
-    cleaned_data_dir = os.path.join("data", "cleaned")
+    cleaned_data_dir = os.path.join(os.path.dirname(os.getcwd()),'SJ_PCD_24-2', 'data', 'cleaned')
     os.makedirs(cleaned_data_dir, exist_ok=True)
     customers.to_parquet(os.path.join(cleaned_data_dir, "customers.parquet"))
     products.to_parquet(os.path.join(cleaned_data_dir, "products.parquet"))
@@ -164,9 +178,12 @@ def main():
     logger.info("Starting the main process to create cleaned datasets.")
     
     # Read original dataset
-    raw_data_path = os.path.join("data", "raw", "puc_vendas.parquet")
-    df = pd.read_parquet(raw_data_path)
+    raw_data_path = os.path.join(os.path.dirname(os.getcwd()), 'SJ_PCD_24-2', 'data', 'raw')
+    df = pd.read_parquet(os.path.join(raw_data_path, 'puc_vendas.parquet'))
     logger.info("Successfully read puc_vendas dataset.")
+    
+    # small fix in df 
+    df = df.drop_duplicates()
 
     # Create and save cleaned datasets
     create_cleaned_datasets(df)
