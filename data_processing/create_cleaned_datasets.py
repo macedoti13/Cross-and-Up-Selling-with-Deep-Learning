@@ -80,11 +80,9 @@ def create_products(df):
 def create_sales(df, customers, products):
     logger.info("Creating sales dataset.")
     
-    print(df.duplicated().sum())
     # Filter sales by customers and products that exist in the respective datasets
     sales = df[df.COD_CLIENTE.isin(customers.customer_id) & df.COD_SKU.isin(products.product_id)]
-    print(df.duplicated().sum()) 
-        
+    
     # Filter customers and products based on sales
     customers = customers[customers.customer_id.isin(sales.COD_CLIENTE)]
     products = products[products.product_id.isin(sales.COD_SKU)]
@@ -95,13 +93,11 @@ def create_sales(df, customers, products):
         "UNIDADES", "IDENTIFICADOR_PROMOCIONAL", "PRECO_REGULAR", 
         "TOTAL_DESCONTO", "TOTAL_BRUTO", "TOTAL_LIQUIDO"
     ]]
-    print(df.duplicated().sum())
 
     # Create sale_id by combining relevant columns
     sales["sale_id"] = sales[['COD_CLIENTE', 'COD_LOJA', 'DATA_CUPOM']].astype(str).agg('_'.join, axis=1)
     sales["sale_id"] = sales.groupby("sale_id").ngroup() + 1
-    print(df.duplicated().sum())
-    
+
     # Rename columns to more user-friendly names
     sales.rename(columns={
         "COD_CUPOM": "cod_cupon",
@@ -116,34 +112,47 @@ def create_sales(df, customers, products):
         "TOTAL_BRUTO": "gross_total",
         "TOTAL_LIQUIDO": "net_total",
     }, inplace=True)
-    print(df.duplicated().sum())
-    
+
     # Extract temporal features from the date column
     sales["week_of_year"] = sales["date"].dt.isocalendar().week
     sales["day_of_week"] = sales["date"].dt.dayofweek
     sales["hour"] = sales["date"].dt.hour
     sales["minute"] = sales["date"].dt.minute
-    print(df.duplicated().sum())
-    
+
     # Add a binary flag indicating if the sale was part of a promotion
     sales["was_in_promotion"] = sales["promotion_id"].notnull().astype(int)
-    print(df.duplicated().sum())
     
     # Drop columns that are no longer needed
     sales.drop(columns=["promotion_id"], inplace=True)
-    print(df.duplicated().sum())
     
     # Fill missing values in the discount column
     sales.fillna({'discount': 0.0}, inplace=True)
-    print(df.duplicated().sum())
     
+    # Aggregate duplicate rows by summing up the numeric values
+    group_cols = [
+        "sale_id", "customer_id", "product_id", "store_id", 
+        "week_of_year", "day_of_week", "hour", "minute", "regular_price", "was_in_promotion"
+    ]
+    sales = sales.groupby(group_cols).agg({
+        'units': 'sum',
+        'discount': 'sum',
+        'gross_total': 'sum',
+        'net_total': 'sum'
+    }).reset_index()
+    
+    # Convert units to integer type
+    sales.units = sales.units.astype(int)
+
     # Reorder columns for final output
     sales = sales[[
         "sale_id", "customer_id", "product_id", "store_id", 
         "week_of_year", "day_of_week", "hour", "minute", "units", 
         "was_in_promotion", "regular_price", "discount", "gross_total", "net_total"
-    ]]
-    print(df.duplicated().sum())
+    ]].sort_values(by=["customer_id", "product_id", "sale_id"]).reset_index(drop=True)
+    
+    # reorder columns and reset indexes of customers and products
+    customers = customers[customers.customer_id.isin(sales.customer_id)].sort_values(by="customer_id").reset_index(drop=True)
+    products = products[products.product_id.isin(sales.product_id)].sort_values(by="product_id").reset_index(drop=True)
 
     return sales, customers, products
 
