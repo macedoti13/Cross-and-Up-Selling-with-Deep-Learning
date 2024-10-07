@@ -1,11 +1,7 @@
 from torch_geometric.nn import GATv2Conv, to_hetero
-from torch_geometric.transforms import ToUndirected
-from torch.nn import Linear, Embedding, LeakyReLU
+from torch.nn import Linear, LeakyReLU
 from torch_geometric.data import HeteroData
-import pandas as pd
-import numpy as np
 import torch
-import os
 
 
 class ProductEncoder(torch.nn.Module):
@@ -45,7 +41,7 @@ class ProductEncoder(torch.nn.Module):
         """
         super().__init__()
         self.lin1 = Linear(in_channels, hidden_channels)
-        self.lin2 = Linear(hidden_channels, hidden_channels // 2)  
+        self.lin2 = Linear(hidden_channels, hidden_channels // 2)
         self.lin3 = Linear(hidden_channels // 2, out_channels)
 
     def forward(self, x):
@@ -144,7 +140,6 @@ class GNNDecoder(torch.nn.Module):
         # Apply sigmoid to get probabilities
         return torch.sigmoid(z.view(-1))  # Output edge probabilities for all pairs
     
-    
 class GNN(torch.nn.Module):
     def __init__(
         self,
@@ -157,35 +152,41 @@ class GNN(torch.nn.Module):
         graph: HeteroData,
     ):
         super().__init__()
-        
+
         # Initialize product encoder
         self.product_encoder = ProductEncoder(
             in_channels=product_encoder_in_channels,
             hidden_channels=product_encoder_hidden_channels,
             out_channels=product_encoder_out_channels,
         )
-        
+
         # Initialize GNN encoder
-        self.gnn_encoder = GNNEncoder(
+        gnn_encoder = GNNEncoder(
             hidden_channels=gnn_encoder_hidden_channels,
             out_channels=gnn_encoder_out_channels,
             edge_dim=graph_edge_dim,
         )
-        
+
         # Convert GNN encoder to a heterogeneous GNN
-        self.gnn_encoder = to_hetero(self.gnn_encoder, graph, aggr="sum")
-        
+        self.gnn_encoder = to_hetero(gnn_encoder, graph.metadata(), aggr="sum")
+
         # Initialize GNN decoder
         self.gnn_decoder = GNNDecoder(gnn_encoder_out_channels)
+
+    def forward(
+        self,
+        products: torch.Tensor,
+        x_dict: dict[str, torch.Tensor],
+        edge_index_dict: dict[tuple, torch.Tensor],
+        edge_attr_dict: dict[tuple, torch.Tensor],
+        edge_label_index: torch.Tensor,
+    ) -> torch.Tensor:
+        # Encode product features and update node dictionary
+        x_dict["product"] = self.product_encoder(products)
         
-    def product_encoder_forward(self):
-        pass
+        # Encode node features using the heterogeneous GNN encoder
+        node_embeddings = self.gnn_encoder(x_dict, edge_index_dict, edge_attr_dict)
+        
+        # Decode edge probabilities
+        return self.gnn_decoder(node_embeddings, edge_label_index)
     
-    def gnn_encoder_forward(self):
-        pass
-    
-    def gnn_decoder_forward(self):
-        pass
-    
-    def forward(self):
-        pass
