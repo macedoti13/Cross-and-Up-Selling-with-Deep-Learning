@@ -109,7 +109,7 @@ def train(
                 # Accumulate validation loss and accuracy
                 val_loss += loss.item() * labels.size(0)
                 total_val += labels.size(0)
-                correct_val += (outputs.argmax(1) == labels).sum().item()
+                correct_val += ((outputs > 0.5).int() == labels).sum().item()
 
         # Calculate average validation loss and accuracy
         avg_val_loss = val_loss / total_val
@@ -120,10 +120,7 @@ def train(
         torch.save(model.state_dict(), checkpoint_path)
 
         # Print epoch summary
-        print(f"{epoch:^10}{avg_train_loss:^15.4f}{avg_val_loss:^15.4f}")
-        print(f"Model saved at: {checkpoint_path}")
-
-    print("\nTraining Complete!")
+        print(f"{epoch:^10}{avg_train_loss:^15.4f}{avg_val_loss:^15.4f}{val_accuracy:^15.4f}")
     
     
 def main():
