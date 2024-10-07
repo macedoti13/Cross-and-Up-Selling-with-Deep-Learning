@@ -13,3 +13,4 @@ openai
 sentence-transformers
 torch
 torch_geometric
+loguru
