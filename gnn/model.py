@@ -1,11 +1,7 @@
 from torch_geometric.nn import GATv2Conv, to_hetero
-from torch_geometric.transforms import ToUndirected
-from torch.nn import Linear, Embedding, LeakyReLU
 from torch_geometric.data import HeteroData
-import pandas as pd
-import numpy as np
+from torch.nn import Linear, LeakyReLU
 import torch
-import os
 
 
 class ProductEncoder(torch.nn.Module):
