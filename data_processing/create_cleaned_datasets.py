@@ -113,6 +113,7 @@ def create_products(df):
     df.drop(columns=["product_name", "product_category", "product_subcategory", "product_price"], inplace=True)
 
     return df, products_df
+
 def create_customers(df):
     """
     Processes customer-related data by aggregating sales and discount information, calculating the age, and converting 
