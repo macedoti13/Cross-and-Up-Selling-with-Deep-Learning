@@ -13,6 +13,7 @@ def main():
         embedding = model.encode(product["description"])
         products.at[index, "embedding"] = embedding
         
+    products = products[["product_id", "embedding"]]
     products.to_parquet(os.path.join(transformed_data_path, 'products_embeddings.parquet'), index=False)
 
 if __name__ == "__main__":
