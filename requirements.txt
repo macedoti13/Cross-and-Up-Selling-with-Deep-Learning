@@ -9,3 +9,7 @@ seaborn
 plotly
 nbformat>=4.2.0
 tqdm
+openai
+sentence-transformers
+torch
+torch_geometric
