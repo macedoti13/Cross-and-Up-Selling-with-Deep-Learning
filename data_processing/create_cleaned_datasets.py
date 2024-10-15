@@ -165,7 +165,7 @@ def create_customers(df):
     customers.drop(columns=["customer_birthdate"], inplace=True)
 
     # Convert gender column from "M" or "F" to 1 or 0
-    customers.loc[:, "client_gender"] = customers["customer_gender"].apply(lambda x: 1 if x == "M" else 0)
+    customers.loc[:, "customer_gender"] = customers["customer_gender"].apply(lambda x: 1 if x == "M" else 0)
     
     # keep customers with at least 5 purchases
     customers = customers[customers.purchases >= 5]
