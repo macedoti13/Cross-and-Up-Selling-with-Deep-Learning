@@ -64,7 +64,7 @@ async def describe_product(client, product, retries=3):
     try:
         async with semaphore:
             chat_completion = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="meta-llama/Meta-Llama-3.1-405B-Instruct",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
