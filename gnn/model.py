@@ -1,7 +1,11 @@
 from torch_geometric.nn import GATv2Conv, to_hetero
+from torch_geometric.transforms import ToUndirected
+from torch.nn import Linear, Embedding, LeakyReLU, Dropout
 from torch_geometric.data import HeteroData
-from torch.nn import Linear, LeakyReLU
+import pandas as pd
+import numpy as np
 import torch
+import os
 
 
 class ProductEncoder(torch.nn.Module):
@@ -41,7 +45,10 @@ class ProductEncoder(torch.nn.Module):
         """
         super().__init__()
         self.lin1 = Linear(in_channels, hidden_channels)
-        self.lin2 = Linear(hidden_channels, out_channels)
+        self.drop1 = Dropout(0.2)
+        self.lin2 = Linear(hidden_channels, hidden_channels//2)
+        self.drop2 = Dropout(0.2)
+        self.lin3 = Linear(hidden_channels//2, out_channels)
 
     def forward(self, x):
         """
@@ -57,7 +64,11 @@ class ProductEncoder(torch.nn.Module):
         """
         x = self.lin1(x)
         x = LeakyReLU()(x)
+        x = self.drop1(x)
         x = self.lin2(x)
+        x = LeakyReLU()(x)
+        x = self.drop2(x)
+        x = self.lin3(x)
         return x
 
 
@@ -71,9 +82,9 @@ class GNNEncoder(torch.nn.Module):
         """
         super().__init__()
         # The first layer transforms the input node features from their original dimension to hidden_channels dimension.
-        self.conv1 = GATv2Conv((-1, -1), hidden_channels, edge_dim=edge_dim, add_self_loops=False, dropout=0.2)  # Aggregates information from the node's 1-hop neighbors
-        self.conv2 = GATv2Conv(hidden_channels, hidden_channels, edge_dim=edge_dim, add_self_loops=False, dropout=0.2)  # Aggregates information from the node's 2-hop neighbors
-        self.conv3 = GATv2Conv(hidden_channels, out_channels, edge_dim=edge_dim, add_self_loops=False, dropout=0.2)  # Aggregates information from the node's 3-hop neighbors
+        self.conv1 = GATv2Conv((-1, -1), hidden_channels, edge_dim=edge_dim, add_self_loops=False, dropout=0.2, heads=5)  # Aggregates information from the node's 1-hop neighbors
+        self.conv2 = GATv2Conv(hidden_channels * 5, hidden_channels, edge_dim=edge_dim, add_self_loops=False, dropout=0.2, heads=5)  # Aggregates information from the node's 2-hop neighbors
+        self.conv3 = GATv2Conv(hidden_channels * 5, out_channels, edge_dim=edge_dim, add_self_loops=False, dropout=0.2, heads=5)  # Aggregates information from the node's 3-hop neighbors
 
     def forward(self, x, edge_index, edge_attr):
         """
@@ -107,8 +118,11 @@ class GNNDecoder(torch.nn.Module):
             hidden_channels (int): The size of the hidden dimension and also the size of the input node embeddings.
         """
         super().__init__()
-        self.lin1 = torch.nn.Linear(2 * hidden_channels, hidden_channels)  # Receives concatenated embeddings, outputs hidden_channels
-        self.lin2 = torch.nn.Linear(hidden_channels, 1)  # Outputs the probability of an edge
+        self.lin1 = torch.nn.Linear(2 * hidden_channels * 5, hidden_channels)  # Adjusted for multi-head attention
+        self.drop1 = Dropout(0.2)
+        self.lin2 = torch.nn.Linear(hidden_channels, hidden_channels // 2)
+        self.drop2 = Dropout(0.2)
+        self.lin3 = torch.nn.Linear(hidden_channels // 2, 1)  # Outputs the probability of an edge
 
     def forward(self, embeddings_dict, edge_index):
         """
@@ -127,7 +141,10 @@ class GNNDecoder(torch.nn.Module):
 
         # Pass concatenated embeddings through the linear layers
         z = self.lin1(z).relu()
-        z = self.lin2(z)
+        z = self.drop1(z)
+        z = self.lin2(z).relu()
+        z = self.drop2(z)
+        z = self.lin3(z)
 
         # Apply sigmoid to get probabilities
         return torch.sigmoid(z.view(-1))  # Output edge probabilities for all pairs
@@ -173,7 +190,6 @@ class GNN(torch.nn.Module):
         edge_attr_dict: dict[tuple, torch.Tensor],
         edge_label_index: torch.Tensor,
     ) -> torch.Tensor:
-    
         # Encode product features and update node dictionary
         x_dict["product"] = self.product_encoder(products)
 
