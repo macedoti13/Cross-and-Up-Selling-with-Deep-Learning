@@ -4,6 +4,14 @@ from sklearn.preprocessing import MinMaxScaler
 import joblib
 import torch
 
+# Define file paths
+GRAPH_PATH = "../data/transformed/graph.pth"
+SAVE_DIR = "../data/transformed"
+TRAIN_DATA_PATH = f"{SAVE_DIR}/train_data.pth"
+VAL_DATA_PATH = f"{SAVE_DIR}/val_data.pth"
+TEST_DATA_PATH = f"{SAVE_DIR}/test_data.pth"
+
+
 def normalize_graph_features(train_data, val_data, test_data, save_path):
     """
     Normalizes customer and product node features in the train, validation, and test splits.
@@ -98,28 +106,37 @@ def normalize_graph_features(train_data, val_data, test_data, save_path):
 
     return train_data, val_data, test_data
 
-graph_path = "../data/transformed/graph.pth"
-data = torch.load(graph_path, weights_only=False)
 
+# Load the preprocessed graph data
+data = torch.load(GRAPH_PATH, weights_only=False)
+
+# Split data into training, validation, and test sets with RandomLinkSplit transformation
 transform = RandomLinkSplit(
     num_val=0.1,
     num_test=0.1,
     neg_sampling_ratio=3.0,
     add_negative_train_samples=True,
-    edge_types=('customer', 'bought', 'product'),
-    rev_edge_types=('product', 'rev_bought', 'customer')
+    edge_types=("customer", "bought", "product"),
+    rev_edge_types=("product", "rev_bought", "customer"),
 )
 
-# Train, validation and test splits
 train_data, val_data, test_data = transform(data)
-train_data, val_data, test_data = normalize_graph_features(train_data, val_data, test_data, save_path="../data/transformed")
 
-# save train, val and test data in drive
-torch.save(train_data, "../data/transformed/train_data.pth")
-torch.save(val_data, "../data/transformed/val_data.pth")
-torch.save(test_data, "../data/transformed/test_data.pth")
+# Normalize the features of the train, validation, and test data
+train_data, val_data, test_data = normalize_graph_features(train_data, val_data, test_data, save_path=SAVE_DIR)
+
+# Save processed train, validation, and test data
+torch.save(train_data, TRAIN_DATA_PATH)
+torch.save(val_data, VAL_DATA_PATH)
+torch.save(test_data, TEST_DATA_PATH)
+
 
 def create_train_dataloader(batch_size: int):
+    """
+    Creates a LinkNeighborLoader dataloader for the training dataset. This dataloader 
+    creates batches with 'batch_size' number of links, the two nodes connected by the link 
+    and 5 neighbors in 3 hops for each node.
+    """
     edge_label_index = (("customer", "bought", "product"), train_data[("customer", "bought", "product")].edge_label_index)
     edge_label = train_data[("customer", "bought", "product")].edge_label
     return LinkNeighborLoader(
@@ -134,6 +151,11 @@ def create_train_dataloader(batch_size: int):
 
 
 def create_val_dataloader(batch_size: int):
+    """
+    Creates a LinkNeighborLoader dataloader for the validation dataset. This dataloader
+    creates batches with 'batch_size' number of links, the two nodes connected by the link
+    and 5 neighbors in 3 hops for each node.
+    """
     edge_label_index = (("customer", "bought", "product"), val_data[("customer", "bought", "product")].edge_label_index)
     edge_label = val_data[("customer", "bought", "product")].edge_label
     return LinkNeighborLoader(
@@ -147,6 +169,11 @@ def create_val_dataloader(batch_size: int):
     )
 
 def create_test_dataloader(batch_size: int):
+    """
+    Creates a LinkNeighborLoader dataloader for the test dataset. This dataloader
+    creates batches with 'batch_size' number of links, the two nodes connected by the link
+    and 5 neighbors in 3 hops for each node.
+    """
     edge_label_index = (("customer", "bought", "product"), test_data[("customer", "bought", "product")].edge_label_index)
     edge_label = test_data[("customer", "bought", "product")].edge_label
     return LinkNeighborLoader(

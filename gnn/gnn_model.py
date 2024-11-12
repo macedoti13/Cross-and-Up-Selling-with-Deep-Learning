@@ -1,11 +1,7 @@
 from torch_geometric.nn import GATv2Conv, to_hetero
-from torch_geometric.transforms import ToUndirected
-from torch.nn import Linear, Embedding, LeakyReLU, Dropout
+from torch.nn import Linear, LeakyReLU, Dropout
 from torch_geometric.data import HeteroData
-import pandas as pd
-import numpy as np
 import torch
-import os
 
 
 class ProductEncoder(torch.nn.Module):
@@ -150,6 +146,43 @@ class GNNDecoder(torch.nn.Module):
         return torch.sigmoid(z.view(-1))  # Output edge probabilities for all pairs
 
 class GNN(torch.nn.Module):
+    """
+    The GNN class defines a complete graph neural network architecture designed to operate on a
+    heterogeneous graph with customer and product nodes. It consists of three main components:
+
+    - A ProductEncoder, which reduces the dimensionality of product node features to make them
+      compatible with the rest of the GNN architecture.
+    - A GNNEncoder, which performs message passing to generate embeddings for each node in the
+      graph, aggregating information from neighboring nodes.
+    - A GNNDecoder, which takes pairs of node embeddings and predicts the probability of an
+      edge existing between them.
+
+    This architecture is particularly suited for link prediction tasks on heterogeneous graphs
+    where edges indicate relationships between different types of nodes (e.g., customer buying a
+    product).
+
+    Args:
+        product_encoder_in_channels (int): Initial dimensionality of the product feature vectors.
+        product_encoder_hidden_channels (int): Dimensionality of hidden layers in the product encoder.
+        product_encoder_out_channels (int): Output dimensionality of the product encoder.
+        gnn_encoder_hidden_channels (int): Dimensionality of embeddings within the GNN encoder.
+        gnn_encoder_out_channels (int): Dimensionality of final node embeddings output by the GNN encoder.
+        graph_edge_dim (int): Dimensionality of the edge features in the graph.
+        graph (HeteroData): The heterogeneous graph object with metadata about node and edge types.
+
+    Example usage:
+        gnn = GNN(
+            product_encoder_in_channels=770,
+            product_encoder_hidden_channels=512,
+            product_encoder_out_channels=128,
+            gnn_encoder_hidden_channels=128,
+            gnn_encoder_out_channels=64,
+            graph_edge_dim=13,
+            graph=graph_data
+        )
+        edge_probabilities = gnn(products=product_features, x_dict=node_features, edge_index_dict=edges, edge_attr_dict=edge_features, edge_label_index=edge_labels)
+    """
+
     def __init__(
         self,
         product_encoder_in_channels: int,
@@ -160,26 +193,39 @@ class GNN(torch.nn.Module):
         graph_edge_dim: int,
         graph: HeteroData,
     ):
+        """
+        Initializes the GNN architecture by setting up the product encoder, GNN encoder, and
+        GNN decoder.
+
+        Args:
+            product_encoder_in_channels (int): Dimensionality of initial product features.
+            product_encoder_hidden_channels (int): Dimensionality of hidden layers in the product encoder.
+            product_encoder_out_channels (int): Output dimensionality of the product encoder.
+            gnn_encoder_hidden_channels (int): Dimensionality of embeddings within the GNN encoder.
+            gnn_encoder_out_channels (int): Final output dimensionality of node embeddings.
+            graph_edge_dim (int): Dimensionality of edge features in the graph.
+            graph (HeteroData): Heterogeneous graph containing metadata for node and edge types.
+        """
         super().__init__()
 
-        # Initialize product encoder
+        # Initialize the product encoder to reduce dimensionality of product features
         self.product_encoder = ProductEncoder(
             in_channels=product_encoder_in_channels,
             hidden_channels=product_encoder_hidden_channels,
             out_channels=product_encoder_out_channels,
         )
 
-        # Initialize GNN encoder
+        # Initialize the GNN encoder for message passing across heterogeneous graph nodes
         gnn_encoder = GNNEncoder(
             hidden_channels=gnn_encoder_hidden_channels,
             out_channels=gnn_encoder_out_channels,
             edge_dim=graph_edge_dim,
         )
 
-        # Convert GNN encoder to a heterogeneous GNN
+        # Convert the GNN encoder into a heterogeneous model that can handle multiple node types
         self.gnn_encoder = to_hetero(gnn_encoder, graph.metadata(), aggr="sum")
 
-        # Initialize GNN decoder
+        # Initialize the GNN decoder to predict edge probabilities between nodes
         self.gnn_decoder = GNNDecoder(gnn_encoder_out_channels)
 
     def forward(
@@ -190,11 +236,26 @@ class GNN(torch.nn.Module):
         edge_attr_dict: dict[tuple, torch.Tensor],
         edge_label_index: torch.Tensor,
     ) -> torch.Tensor:
-        # Encode product features and update node dictionary
+        """
+        Defines the forward pass of the GNN. This involves encoding product features, performing
+        message passing to generate node embeddings, and predicting edge probabilities.
+
+        Args:
+            products (torch.Tensor): Input tensor of product features, to be encoded.
+            x_dict (dict[str, torch.Tensor]): Dictionary of initial node features for each node type.
+                                              Example key-value pairs: {"customer": customer_features, "product": product_features}.
+            edge_index_dict (dict[tuple, torch.Tensor]): Dictionary containing edge indices for each relation in the graph.
+            edge_attr_dict (dict[tuple, torch.Tensor]): Dictionary containing edge features for each relation.
+            edge_label_index (torch.Tensor): Edge indices for which to compute link predictions.
+
+        Returns:
+            torch.Tensor: Predicted probabilities of edges existing between specified pairs of nodes.
+        """
+        # Encode product features and update product node embeddings in x_dict
         x_dict["product"] = self.product_encoder(products)
 
-        # Encode node features using the heterogeneous GNN encoder
+        # Apply the heterogeneous GNN encoder to generate node embeddings
         node_embeddings = self.gnn_encoder(x_dict, edge_index_dict, edge_attr_dict)
 
-        # Decode edge probabilities
+        # Decode the node embeddings to predict edge probabilities
         return self.gnn_decoder(node_embeddings, edge_label_index)

@@ -1,5 +1,5 @@
 from torch.utils.tensorboard.writer import SummaryWriter
-from .model import GNN
+from gnn_model import GNN
 import torch
 import os
 
