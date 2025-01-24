@@ -5,3 +5,13 @@ This project was created in collaboration with Farmácias São João, one of the
 1. Perform **Cross-Selling** recommendations for a user, considering the user's past purchases and current products in their cart.
 2. Perform **Up-Selling** recommendations for a user, considering the user's past purchases and current products in their cart.
 3. Create a **profile** for each user to better understand their purchase behavior, thereby improving general recommendations.
+
+## The Provided Dataset
+
+## Product Data Augmentation Strategy
+
+## Heterogenous Graph Neural Network Approach
+
+## Neural Collaborative Filtering Approach
+
+## Results
